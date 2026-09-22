@@ -124,7 +124,7 @@
     <div class="card">
         <div class="section-title">1 · Ta musique</div>
         <div class="upload-area" id="audio-upload-area">
-            <input type="file" id="audio-input" accept="audio/*">
+            <input type="file" id="audio-input" accept="audio/*,.mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/x-m4a">
             <div class="icon">🎵</div>
             <div>Appuie pour choisir ton MP3 Suno</div>
             <div class="file-name" id="audio-file-name"></div>
@@ -290,7 +290,8 @@ audioInput.addEventListener("change", (e) => {
 });
 
 function handleAudioFile(file) {
-    if (!file.type.startsWith("audio/")) { alert("Choisis un fichier audio."); return; }
+    const looksLikeAudio = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|aac|ogg)$/i.test(file.name);
+    if (!looksLikeAudio) { alert("Choisis un fichier audio."); return; }
     state.audioFile = file;
     state.audioObjectUrl = URL.createObjectURL(file);
     document.getElementById("audio-file-name").textContent = file.name;
