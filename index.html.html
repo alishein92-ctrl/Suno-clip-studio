@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-NBplNE0tBJYgXi1q+3vTG4x7V51pubQWVnrtX1duS2E='; style-src 'sha256-8m/+R9W9qMiPnchW2BkD3Xeb7p2rOShM630MVp9iPts='; img-src 'self' data: blob: https:; media-src 'self' blob: data: https:; connect-src https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0F1124">
+<meta name="description" content="Dépose une chanson : ClipStudio écrit le storyboard, génère les plans avec Agnes et monte le clip sur ta musique.">
+<title>ClipStudio — de la musique au clip</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AC%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --night: #0F1124;
+  --panel: #171A31;
+  --raised: #20243F;
+  --line: #30355A;
+  --text: #EDEFFA;
+  --muted: #A3AACB;
+  --spot: #F4B942;
+  --spot-ink: #1C1406;
+  --rose: #E8597E;
+  --ok: #62D69E;
+  --bad: #FF8F8F;
+  --radius-lg: 18px;
+  --radius: 10px;
+  --font: "Avenir Next", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --display: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", "Avenir Next", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--night); color: var(--text); font: 16px/1.55 var(--font); }
+[hidden] { display: none !important; }
+
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.masthead { padding: 28px 2px 6px; }
+h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(46px, 13vw, 80px);
+  line-height: .9;
+  letter-spacing: -.025em;
+  margin: 0;
+}
+.lede { color: var(--muted); max-width: 58ch; margin: 14px 0 0; font-size: 17px; }
+
+.step {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px 18px;
+  margin-top: 18px;
+}
+h2 { display: flex; align-items: center; gap: 12px; font-size: 20px; line-height: 1.2; margin: 0 0 16px; font-weight: 700; }
+.num {
+  display: inline-grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--spot); color: var(--spot-ink);
+  font-size: 15px; font-weight: 800;
+}
+
+label { display: block; font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
+.opt { font-weight: 400; color: var(--muted); }
+
+input[type="text"], input[type="password"], select, textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 16px; /* évite le zoom automatique sur iPhone */
+  color: var(--text);
+  background: var(--night);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 11px 12px;
+}
+textarea { min-height: 88px; resize: vertical; line-height: 1.45; }
+input:focus, select:focus, textarea:focus { border-color: var(--spot); outline: none; }
+:focus-visible { outline: 2px solid var(--spot); outline-offset: 2px; }
+input:disabled, textarea:disabled, select:disabled { opacity: .6; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.drop {
+  display: block; margin: 0; cursor: pointer; text-align: center; font-weight: 400;
+  border: 1.5px dashed var(--line); border-radius: 14px;
+  padding: 26px 18px; background: var(--night);
+}
+.drop strong { display: block; font-size: 17px; margin-bottom: 4px; }
+.drop span { color: var(--muted); font-size: 14px; }
+.drop.is-over, .drop:focus-within { border-color: var(--spot); }
+.drop.is-disabled { opacity: .5; cursor: not-allowed; }
+
+.note { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.status { font-size: 15px; margin: 10px 0 0; min-height: 1.5em; }
+[data-tone="bad"] { color: var(--bad); }
+[data-tone="ok"] { color: var(--ok); }
+
+audio { display: block; width: 100%; margin-top: 12px; }
+
+.analysis { margin: 16px 0 0; }
+#timeline { display: block; width: 100%; height: 124px; border-radius: 12px; background: var(--night); cursor: pointer; touch-action: manipulation; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0 0; }
+.stats div { background: var(--raised); border-radius: var(--radius); padding: 10px 12px; }
+.stats dt { font-size: 12px; color: var(--muted); }
+.stats dd { margin: 2px 0 0; font-weight: 700; }
+@media (min-width: 560px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.grid .wide { grid-column: 1 / -1; }
+@media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+
+.keyrow { display: flex; gap: 8px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; }
+.check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--spot); flex: none; }
+
+.btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.btn {
+  font: inherit; font-weight: 700; font-size: 16px;
+  min-height: 46px; padding: 11px 18px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  background: var(--raised); color: var(--text); cursor: pointer;
+}
+.btn.primary { background: var(--spot); color: var(--spot-ink); }
+.btn.ghost { background: transparent; border-color: var(--line); }
+.btn.danger { background: #3A1624; color: #FFC6D2; }
+.btn.small { min-height: 40px; padding: 8px 12px; font-size: 14px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.progress { height: 8px; background: var(--raised); border-radius: 99px; overflow: hidden; margin: 16px 0 0; }
+.bar { height: 100%; width: 0; background: var(--spot); transition: width .3s ease; }
+
+.concept { margin: 18px 0 0; padding: 14px 16px; background: var(--raised); border-radius: 12px; }
+.concept h3 { margin: 0 0 4px; font-size: 15px; }
+.concept p { margin: 0; color: var(--muted); }
+.bibles { margin-top: 12px; }
+.refimg { display: block; width: 100%; max-width: 240px; border-radius: 12px; margin-top: 10px; background: #000; }
+.bibles summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+
+.scenes { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 12px; }
+.scene { background: var(--night); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 12px; padding: 14px; }
+.scene[data-status="queued"], .scene[data-status="sending"], .scene[data-status="running"] { border-left-color: var(--spot); }
+.scene[data-status="done"] { border-left-color: var(--ok); }
+.scene[data-status="error"] { border-left-color: var(--bad); }
+.scene-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.scene-head h3 { font-size: 16px; margin: 0; }
+.time { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.chip { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--raised); }
+.chip[data-level="2"] { background: #5A2A3B; }
+.chip[data-level="3"] { background: var(--rose); color: #2A0A15; }
+.scene textarea { margin-top: 10px; font-size: 15px; min-height: 112px; }
+.scene .status { font-size: 14px; }
+.scene video { display: block; width: 100%; border-radius: 10px; margin-top: 10px; background: #000; }
+.scene .btns { margin-top: 10px; }
+
+.stage canvas, .stage video { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 12px; margin-top: 14px; background: #000; }
+.stage .btns { margin-top: 12px; }
+
+.resume { background: var(--raised); border: 1px solid var(--spot); border-radius: 14px; padding: 14px 16px; margin-top: 18px; }
+.resume p { margin: 0 0 10px; }
+
+.foot { color: var(--muted); font-size: 13px; text-align: center; margin-top: 28px; }
+.noscript { text-align: center; padding: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="masthead">
+    <h1>ClipStudio</h1>
+    <p class="lede">Dépose une chanson. ClipStudio mesure son énergie, écrit un storyboard plan par plan, fait tourner chaque plan par l’IA vidéo Agnes, puis monte le clip sur ta musique.</p>
+  </header>
+
+  <div id="resume" class="resume" hidden>
+    <p id="resumeText"></p>
+    <div class="btns">
+      <button id="resumeYes" type="button" class="btn primary">Reprendre ce projet</button>
+      <button id="resumeNo" type="button" class="btn ghost">Effacer ce projet</button>
+    </div>
+  </div>
+
+  <section class="step" aria-labelledby="s1">
+    <h2 id="s1"><span class="num" aria-hidden="true">1</span>La musique</h2>
+
+    <label id="drop" class="drop" for="audio">
+      <input id="audio" class="sr-only" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac">
+      <strong>Choisir une chanson</strong>
+      <span>MP3, WAV ou M4A, 60 Mo maximum. Tu peux aussi la glisser ici.</span>
+    </label>
+    <p id="fileInfo" class="note" aria-live="polite">Aucune chanson pour l’instant.</p>
+    <audio id="player" controls preload="metadata" hidden></audio>
+
+    <figure id="analysis" class="analysis" hidden>
+      <canvas id="timeline" role="img" aria-label="Énergie de la chanson et découpage en plans"></canvas>
+      <figcaption>Hauteur des barres : énergie de la chanson. Zones numérotées : les plans du clip. Touche la frise pour écouter ce passage.</figcaption>
+      <dl class="stats">
+        <div><dt>Durée</dt><dd id="stDur">–</dd></div>
+        <div><dt>Tempo estimé</dt><dd id="stTempo">–</dd></div>
+        <div><dt>Dynamique</dt><dd id="stDyn">–</dd></div>
+        <div><dt>Couleur sonore</dt><dd id="stTimbre">–</dd></div>
+      </dl>
+    </figure>
+
+    <label for="idea">Idée de départ <span class="opt">facultatif</span></label>
+    <textarea id="idea" maxlength="1500" placeholder="Laisse vide et l’IA invente tout. Exemple : une femme traverse Paris la nuit après une rupture."></textarea>
+
+    <label for="lyrics">Paroles <span class="opt">facultatif, l’histoire suivra leur sens</span></label>
+    <textarea id="lyrics" maxlength="6000" placeholder="Colle les paroles ici. Elles ne seront jamais écrites à l’image."></textarea>
+  </section>
+
+  <section class="step" aria-labelledby="s2">
+    <h2 id="s2"><span class="num" aria-hidden="true">2</span>Les réglages</h2>
+
+    <label for="key">Clé API Agnes</label>
+    <div class="keyrow">
+      <input id="key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Colle ta clé ici">
+      <button id="forgetKey" type="button" class="btn ghost small">Effacer</button>
+    </div>
+    <label class="check"><input id="rememberKey" type="checkbox"> Mémoriser la clé sur cet appareil</label>
+    <p class="note">La clé ne sort de ton navigateur que pour parler à l’API Agnes. Ne l’écris jamais dans les fichiers du dépôt GitHub.</p>
+
+    <div class="grid">
+      <div>
+        <label for="ratio">Format</label>
+        <select id="ratio">
+          <option value="16:9">16:9 paysage</option>
+          <option value="9:16">9:16 vertical (Reels, TikTok)</option>
+          <option value="1:1">1:1 carré</option>
+          <option value="21:9">21:9 cinéma</option>
+        </select>
+      </div>
+      <div>
+        <label for="style">Style</label>
+        <select id="style">
+          <option value="cinematic photorealistic">Cinéma réaliste</option>
+          <option value="luxury fashion film">Luxe et mode</option>
+          <option value="emotional dramatic film">Émotion, drame</option>
+          <option value="dreamlike photorealism">Onirique réaliste</option>
+          <option value="urban music video">Clip urbain</option>
+        </select>
+      </div>
+      <div>
+        <label for="character">Personnage principal</label>
+        <select id="character">
+          <option value="auto">Au choix de l’IA</option>
+          <option value="woman">Une femme</option>
+          <option value="man">Un homme</option>
+          <option value="none">Aucun personnage</option>
+        </select>
+      </div>
+      <div class="wide">
+        <label for="length">Longueur du clip</label>
+        <select id="length">
+          <option value="3">3 plans, 24 s : test rapide</option>
+          <option value="5" selected>5 plans, 40 s</option>
+          <option value="8">8 plans, 64 s</option>
+          <option value="12">12 plans, 96 s</option>
+          <option value="auto">Toute la chanson</option>
+        </select>
+        <p class="note">Pour un clip court, ClipStudio choisit le passage le plus fort de la chanson.</p>
+      </div>
+    </div>
+
+    <p class="note">Les plans sont générés en 720p avec le modèle gratuit d’Agnes, un par minute.</p>
+  </section>
+
+  <section class="step" aria-labelledby="s3">
+    <h2 id="s3"><span class="num" aria-hidden="true">3</span>Le storyboard et les plans</h2>
+    <div class="btns">
+      <button id="write" type="button" class="btn primary" disabled>Écrire le storyboard</button>
+      <button id="generate" type="button" class="btn primary" hidden>Générer les plans</button>
+      <button id="stop" type="button" class="btn danger" hidden>Arrêter</button>
+    </div>
+    <div id="progress" class="progress" hidden><div id="bar" class="bar"></div></div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <div id="board"></div>
+  </section>
+
+  <section class="step" aria-labelledby="s4">
+    <h2 id="s4"><span class="num" aria-hidden="true">4</span>Le montage</h2>
+    <p class="note">Les plans sont montés bout à bout sur ta chanson, directement dans ton navigateur. Garde l’écran allumé et cette page ouverte : le montage dure le temps du clip.</p>
+    <div class="btns">
+      <button id="assemble" type="button" class="btn primary" disabled>Monter le clip</button>
+      <button id="stopMontage" type="button" class="btn danger" hidden>Arrêter le montage</button>
+      <button id="downloadAll" type="button" class="btn ghost" disabled>Télécharger tous les plans</button>
+      <button id="exportSb" type="button" class="btn ghost" disabled>Exporter le storyboard</button>
+    </div>
+    <p id="mStatus" class="status" role="status" aria-live="polite"></p>
+    <div id="stage" class="stage"></div>
+  </section>
+
+  <footer class="foot">ClipStudio fonctionne entièrement dans ton navigateur. Rien n’est envoyé ailleurs qu’à l’API Agnes.</footer>
+</main>
+<noscript><p class="noscript">ClipStudio a besoin de JavaScript pour fonctionner.</p></noscript>
+<script>
+'use strict';
+
+/* =========================================================================
+   ClipStudio — de la musique au clip
+   Tout s'exécute dans le navigateur. Aucune donnée n'est envoyée ailleurs
+   qu'à l'API Agnes. Les endpoints et paramètres vidéo reprennent ceux de la
+   V1 : si Agnes change son API, c'est ici (CONFIG) qu'il faut ajuster.
+   ========================================================================= */
+
+const CONFIG = {
+  apiBase: 'https://apihub.agnes-ai.com',
+  chatModel: 'agnes-3.0-flash',
+  videoModel: 'agnes-video-2.5-flash',   // modèle gratuit, 720p uniquement
+  imageModel: 'agnes-image-2.5-flash',
+  sceneSeconds: 8,
+  maxFileMB: 60,
+  maxScenes: 30,
+  concurrency: 1,
+  videoGapMs: 65000,                     // compte gratuit : 1 vidéo par minute
+  pollTimeoutMs: 15 * 60 * 1000,
+  retryStatuses: new Set([408, 425, 429, 500, 502, 503, 504, 520, 522, 524]),
+  safeVideoRetry: new Set([429, 503]),
+  storeKey: 'clipstudio.project.v2',
+  settingsKey: 'clipstudio.settings.v2',
+  apiKeyStore: 'clipstudio.apikey'
+};
+
+const ENERGY_FR = ['calme', 'modéré', 'intense', 'explosif'];
+const ENERGY_EN = ['calm', 'moderate', 'intense', 'peak'];
+const CHARACTER_EN = {
+  auto: 'choose what fits the song best (one consistent main character, or none if more fitting)',
+  woman: 'one woman as the main character',
+  man: 'one man as the main character',
+  none: 'no main human character; focus on places, objects, nature and atmosphere'
+};
+
+/* ---------------------------- Utilitaires ---------------------------- */
+
+class CancelError extends Error {
+  constructor() { super('Arrêté.'); this.name = 'CancelError'; }
+}
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const str = v => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim();
+
+function fmtTime(s) {
+  s = Math.max(0, Math.round(Number(s) || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal && signal.aborted) return reject(new CancelError());
+    const onAbort = () => { clearTimeout(t); reject(new CancelError()); };
+    const t = setTimeout(() => { if (signal) signal.removeEventListener('abort', onAbort); resolve(); }, ms);
+    if (signal) signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function safeHttpsUrl(u) {
+  if (typeof u !== 'string' || !u) return null;
+  try { const x = new URL(u); return x.protocol === 'https:' ? x.href : null; } catch { return null; }
+}
+
+function energyLevel(e) { return e < 0.3 ? 0 : e < 0.55 ? 1 : e < 0.78 ? 2 : 3; }
+
+function randomSeed() {
+  const a = new Uint32Array(1);
+  (globalThis.crypto || window.crypto).getRandomValues(a);
+  return 10000 + (a[0] % 900000);
+}
+
+function parseJSON(text) {
+  const s = String(text || '').replace(/```(?:json)?/gi, '').trim();
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) throw new Error('la réponse ne contient pas d’objet JSON');
+  try { return JSON.parse(s.slice(a, b + 1)); } catch { throw new Error('le JSON renvoyé est mal formé'); }
+}
+
+function validateStoryboard(o, n) {
+  if (!o || typeof o !== 'object') throw new Error('réponse vide');
+  const scenes = Array.isArray(o.scenes) ? o.scenes : [];
+  if (scenes.length < n) throw new Error(`il y a ${scenes.length} plans au lieu de ${n}`);
+  const out = scenes.slice(0, n).map((s, i) => {
+    s = s && typeof s === 'object' ? s : {};
+    const prompt = str(s.prompt).slice(0, 2400);
+    if (prompt.length < 20) throw new Error(`le plan ${i + 1} n’a pas de description exploitable`);
+    return { title: str(s.title).slice(0, 90) || `Plan ${i + 1}`, prompt };
+  });
+  return {
+    concept: str(o.concept).slice(0, 1200),
+    character_bible: str(o.character_bible).slice(0, 2400),
+    visual_bible: str(o.visual_bible).slice(0, 2400),
+    scenes: out
+  };
+}
+
+/* --------------------------- Analyse audio --------------------------- */
+
+function toMono(ab) {
+  const n = ab.length, ch = ab.numberOfChannels, out = new Float32Array(n);
+  for (let c = 0; c < ch; c++) {
+    const d = ab.getChannelData(c);
+    for (let i = 0; i < n; i++) out[i] += d[i] / ch;
+  }
+  return out;
+}
+
+function analyze(mono, sr) {
+  const hop = Math.max(1, Math.round(sr / 100)); // trames de 10 ms
+  const F = Math.floor(mono.length / hop);
+  const rms = new Float32Array(F);
+  let crossings = 0, prev = 0;
+  for (let f = 0; f < F; f++) {
+    let s = 0; const o = f * hop;
+    for (let i = 0; i < hop; i++) {
+      const x = mono[o + i]; s += x * x;
+      if ((x >= 0) !== (prev >= 0)) crossings++;
+      prev = x;
+    }
+    rms[f] = Math.sqrt(s / hop);
+  }
+  const brightness = crossings / Math.max(1, F * hop);
+
+  // Tempo : autocorrélation de la courbe d'attaques sur ~60 s représentatives
+  const on = new Float32Array(F);
+  for (let f = 1; f < F; f++) {
+    const d = Math.log(rms[f] + 1e-4) - Math.log(rms[f - 1] + 1e-4);
+    on[f] = d > 0 ? d : 0;
+  }
+  const w0 = Math.floor(F * 0.2), w1 = Math.min(F, w0 + 6000);
+  let mean = 0;
+  for (let f = w0; f < w1; f++) mean += on[f];
+  mean /= Math.max(1, w1 - w0);
+  let power = 0;
+  for (let f = w0; f < w1; f++) { on[f] -= mean; power += on[f] * on[f]; }
+  let best = -Infinity, bestLag = 0;
+  const minLag = Math.round(6000 / 180), maxLag = Math.round(6000 / 70);
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let s = 0;
+    for (let f = w0; f + lag < w1; f++) s += on[f] * on[f + lag];
+    const bpm = 6000 / lag;
+    const prior = Math.exp(-0.5 * (Math.log2(bpm / 115) / 0.8) ** 2);
+    const score = s * (0.6 + 0.4 * prior);
+    if (score > best) { best = score; bestLag = lag; }
+  }
+  const confidence = power > 0 ? best / power : 0;
+  const tempo = (w1 - w0 > 1000 && confidence > 0.04 && bestLag) ? Math.round(6000 / bestLag) : null;
+
+  // Courbe d'énergie par pas de 0,25 s, normalisée sur le 95e centile
+  const per = 25, step = per * hop / sr;
+  const E = Math.max(1, Math.ceil(F / per));
+  const energy = new Float32Array(E);
+  for (let k = 0; k < E; k++) {
+    let s = 0, c = 0;
+    for (let f = k * per; f < Math.min(F, (k + 1) * per); f++) { s += rms[f]; c++; }
+    energy[k] = c ? s / c : 0;
+  }
+  const sorted = Array.from(energy).sort((a, b) => a - b);
+  const norm = sorted[Math.floor(sorted.length * 0.95)] || sorted[sorted.length - 1] || 0;
+  for (let k = 0; k < E; k++) energy[k] = norm > 0 ? Math.min(1, energy[k] / norm) : 0;
+  const prefix = new Float64Array(E + 1);
+  let m = 0;
+  for (let k = 0; k < E; k++) { prefix[k + 1] = prefix[k] + energy[k]; m += energy[k]; }
+  m /= E;
+  let v = 0;
+  for (let k = 0; k < E; k++) v += (energy[k] - m) ** 2;
+  return { tempo, energy, step, prefix, dynamics: Math.sqrt(v / E), brightness };
+}
+
+function avgEnergy(a, t0, t1) {
+  const E = a.energy.length;
+  const i0 = clamp(Math.floor(t0 / a.step), 0, E - 1);
+  const i1 = clamp(Math.ceil(t1 / a.step), i0 + 1, E);
+  return (a.prefix[i1] - a.prefix[i0]) / (i1 - i0);
+}
+
+/* WAV mono 16 bits sous-échantillonné (~22 kHz) pour garder les requêtes légères */
+function wavBytes(mono, sr, start, dur) {
+  const factor = Math.max(1, Math.floor(sr / 22050));
+  const outSr = Math.round(sr / factor);
+  const s0 = clamp(Math.floor(start * sr), 0, mono.length);
+  const s1 = clamp(Math.floor((start + dur) * sr), s0, mono.length);
+  const n = Math.floor((s1 - s0) / factor);
+  const buf = new ArrayBuffer(44 + n * 2);
+  const dv = new DataView(buf);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE');
+  w(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, outSr, true); dv.setUint32(28, outSr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  w(36, 'data'); dv.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    let s = 0; const o = s0 + i * factor;
+    for (let j = 0; j < factor; j++) s += mono[o + j];
+    const x = clamp(s / factor, -1, 1);
+    dv.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7FFF, true);
+  }
+  return new Uint8Array(buf);
+}
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+function wavDataURL(mono, sr, start, dur) {
+  return 'data:audio/wav;base64,' + bytesToBase64(wavBytes(mono, sr, start, dur));
+}
+
+/* Découpe du clip : toute la chanson, ou le passage le plus énergique */
+function planWindows(duration, analysis, lengthSetting) {
+  const S = CONFIG.sceneSeconds;
+  const maxByDur = Math.max(1, Math.ceil(duration / S));
+  let n = lengthSetting === 'auto' ? maxByDur : Number(lengthSetting) || 5;
+  n = clamp(Math.min(n, maxByDur), 1, CONFIG.maxScenes);
+  let start = 0;
+  const span = n * S;
+  if (lengthSetting !== 'auto' && span < duration && analysis) {
+    let best = -1;
+    for (let t = 0; t + span <= duration; t += 0.5) {
+      const e = avgEnergy(analysis, t, t + span);
+      if (e > best) { best = e; start = t; }
+    }
+    start = Math.round(start * 2) / 2;
+  }
+  return Array.from({ length: n }, (_, i) => {
+    const s = start + i * S, e = Math.min(duration, s + S);
+    return { start: s, end: e, energy: analysis ? avgEnergy(analysis, s, e) : 0.5 };
+  });
+}
+
+/* ============================ Application ============================ */
+
+function startApp() {
+  const $ = s => document.querySelector(s);
+
+  function h(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const c of kids.flat()) if (c != null) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    return n;
+  }
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* stockage indisponible */ } }
+  };
+
+  const state = {
+    file: null, fileName: '', duration: 0, buffer: null, mono: null, sr: 0, analysis: null,
+    storyboard: null, seedBase: randomSeed(),
+    running: null, abort: null, wake: null,
+    dom: [], refBox: null, lastVideoAt: 0, playerUrl: null, finalUrl: null, saveTimer: 0
+  };
+
+  const ui = {
+    drop: $('#drop'), audio: $('#audio'), fileInfo: $('#fileInfo'), player: $('#player'),
+    analysis: $('#analysis'), timeline: $('#timeline'),
+    idea: $('#idea'), lyrics: $('#lyrics'), key: $('#key'), rememberKey: $('#rememberKey'), forgetKey: $('#forgetKey'),
+    ratio: $('#ratio'), style: $('#style'), character: $('#character'), length: $('#length'),
+    write: $('#write'), generate: $('#generate'), stop: $('#stop'), progress: $('#progress'), bar: $('#bar'), status: $('#status'), board: $('#board'),
+    assemble: $('#assemble'), stopMontage: $('#stopMontage'), downloadAll: $('#downloadAll'), exportSb: $('#exportSb'), mStatus: $('#mStatus'), stage: $('#stage'),
+    resume: $('#resume'), resumeText: $('#resumeText'), resumeYes: $('#resumeYes'), resumeNo: $('#resumeNo')
+  };
+
+  /* ----------------------------- Messages ----------------------------- */
+
+  function setStatus(msg, pct, tone) {
+    ui.status.textContent = msg || '';
+    ui.status.dataset.tone = tone || '';
+    if (pct != null) { ui.progress.hidden = false; ui.bar.style.width = clamp(pct, 0, 100) + '%'; }
+  }
+  let mHint = '';
+  function setMStatus(msg, tone) { mHint = ''; ui.mStatus.textContent = msg || ''; ui.mStatus.dataset.tone = tone || ''; }
+  function setMHint(msg) { if (ui.mStatus.textContent && ui.mStatus.textContent !== mHint) return; mHint = msg; ui.mStatus.textContent = msg; ui.mStatus.dataset.tone = ''; }
+  function fileMsg(msg, tone) { ui.fileInfo.textContent = msg; ui.fileInfo.dataset.tone = tone || ''; }
+
+  /* ----------------------------- Réglages ----------------------------- */
+
+  const SETTING_IDS = ['ratio', 'style', 'character', 'length'];
+  function settings() {
+    return {
+      ratio: ui.ratio.value, style: ui.style.value, character: ui.character.value,
+      length: ui.length.value, idea: ui.idea.value.trim(), lyrics: ui.lyrics.value.trim()
+    };
+  }
+  function saveSettings() {
+    const s = settings();
+    store.set(CONFIG.settingsKey, JSON.stringify({ ...s, idea: s.idea.slice(0, 1500), lyrics: s.lyrics.slice(0, 6000) }));
+  }
+  function loadSettings() {
+    let s;
+    try { s = JSON.parse(store.get(CONFIG.settingsKey) || 'null'); } catch { s = null; }
+    if (!s || typeof s !== 'object') return;
+    for (const id of SETTING_IDS) {
+      const sel = ui[id];
+      if (typeof s[id] === 'string' && [...sel.options].some(o => o.value === s[id])) sel.value = s[id];
+    }
+    if (typeof s.idea === 'string') ui.idea.value = s.idea.slice(0, 1500);
+    if (typeof s.lyrics === 'string') ui.lyrics.value = s.lyrics.slice(0, 6000);
+  }
+
+  function getKey() {
+    const k = ui.key.value.trim();
+    if (!k) { setStatus('Ajoute ta clé API Agnes dans les réglages.', null, 'bad'); ui.key.focus(); return null; }
+    if (!/^[\x21-\x7E]{8,512}$/.test(k)) { setStatus('Cette clé contient des caractères invalides. Recopie-la sans espace.', null, 'bad'); ui.key.focus(); return null; }
+    return k;
+  }
+  function persistKey() {
+    if (ui.rememberKey.checked && ui.key.value.trim()) store.set(CONFIG.apiKeyStore, ui.key.value.trim());
+    else store.del(CONFIG.apiKeyStore);
+  }
+
+  /* ------------------------------ Réseau ------------------------------ */
+
+  async function request(url, opts, signal, timeout) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeout || 60000);
+    const onAbort = () => ctrl.abort();
+    if (signal) signal.addEventListener('abort', onAbort, { once: true });
+    try {
+      return await fetch(url, { ...opts, signal: ctrl.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+    } catch (e) {
+      if (signal && signal.aborted) throw new CancelError();
+      if (ctrl.signal.aborted) throw new Error('Le serveur ne répond pas (délai dépassé).');
+      throw new Error('Connexion impossible au serveur. Vérifie ta connexion internet. Si l’erreur persiste, le serveur refuse peut-être les appels depuis un navigateur (CORS).');
+    } finally {
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener('abort', onAbort);
+    }
+  }
+
+  function authHeaders(key, json) {
+    const hd = { Authorization: 'Bearer ' + key, Accept: 'application/json' };
+    if (json) hd['Content-Type'] = 'application/json';
+    return hd;
+  }
+
+  async function readJSON(r) {
+    try { return await r.json(); } catch { throw new Error('Réponse illisible du serveur.'); }
+  }
+
+  async function apiError(r, context, key) {
+    let detail = '';
+    try {
+      const t = await r.text();
+      try { const j = JSON.parse(t); detail = str((j.error && (j.error.message || j.error)) || j.message || j.detail || ''); } catch { detail = t; }
+    } catch { /* corps illisible */ }
+    detail = str(detail).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 220);
+    if (key) detail = detail.split(key).join('•••');
+    const hints = {
+      400: 'Requête refusée par Agnes',
+      401: 'Clé API refusée. Vérifie-la dans les réglages',
+      402: 'Crédits Agnes insuffisants',
+      403: 'Accès refusé : cette clé n’a pas les droits nécessaires',
+      404: 'Service introuvable',
+      413: 'Requête trop lourde. Décoche l’envoi de l’extrait audio et réessaie',
+      429: 'Trop de demandes. Attends une minute et réessaie'
+    };
+    const base = hints[r.status] || `Erreur du serveur (${r.status})`;
+    const err = new Error(`${context} : ${base}${detail ? ' — ' + detail : ''}.`);
+    err.status = r.status;
+    return err;
+  }
+
+  function retryDelay(attempt, r) {
+    const ra = r && Number(r.headers.get('Retry-After'));
+    if (ra > 0) return Math.min(90000, ra * 1000);
+    if (r && r.status === 429) return CONFIG.videoGapMs;
+    return Math.min(30000, 2000 * 2 ** attempt) + Math.random() * 600;
+  }
+
+  async function postWithRetry(path, body, key, signal, timeout, context, attempts, retrySet) {
+    const retryable = retrySet || CONFIG.retryStatuses;
+    let lastErr;
+    for (let a = 0; a < (attempts || 5); a++) {
+      let r;
+      try {
+        r = await request(CONFIG.apiBase + path, { method: 'POST', headers: authHeaders(key, true), body: JSON.stringify(body) }, signal, timeout);
+      } catch (e) {
+        if (e instanceof CancelError) throw e;
+        lastErr = e;
+        await sleep(retryDelay(a), signal);
+        continue;
+      }
+      if (r.ok) return readJSON(r);
+      lastErr = await apiError(r, context, key);
+      if (!retryable.has(r.status)) throw lastErr;
+      await sleep(retryDelay(a, r), signal);
+    }
+    throw lastErr;
+  }
+
+  async function chat(key, messages, signal) {
+    const j = await postWithRetry('/v1/chat/completions', { model: CONFIG.chatModel, messages, temperature: 0.85 }, key, signal, 120000, 'Storyboard', 4);
+    const c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    if (typeof c !== 'string' || !c.trim()) throw new Error('Storyboard : réponse vide de l’IA.');
+    return c;
+  }
+
+  async function pollVideo(key, id, model, signal, onProgress) {
+    const url = `${CONFIG.apiBase}/agnesapi?video_id=${encodeURIComponent(id)}&model_name=${encodeURIComponent(model)}`;
+    const t0 = Date.now();
+    let fails = 0, delay = 3000;
+    while (Date.now() - t0 < CONFIG.pollTimeoutMs) {
+      await sleep(delay, signal);
+      delay = Math.min(8000, delay + 500);
+      let r;
+      try { r = await request(url, { headers: authHeaders(key) }, signal, 30000); }
+      catch (e) { if (e instanceof CancelError) throw e; if (++fails > 10) throw e; continue; }
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) throw await apiError(r, 'Suivi du plan', key);
+        if (++fails > 10) throw await apiError(r, 'Suivi du plan', key);
+        continue;
+      }
+      fails = 0;
+      const j = await readJSON(r);
+      const st = str(j.status || j.state).toLowerCase();
+      const p = Number(j.progress);
+      if (Number.isFinite(p)) onProgress(clamp(Math.round(p), 0, 99));
+      if (['completed', 'succeeded', 'success', 'done', 'finished'].includes(st)) return j;
+      if (['failed', 'error', 'cancelled', 'canceled', 'rejected'].includes(st)) {
+        throw new Error(str((j.error && (j.error.message || j.error)) || j.message) || 'La génération a échoué côté serveur.');
+      }
+    }
+    throw new Error('Délai dépassé (15 min). Relance ce plan.');
+  }
+
+  async function fetchBlob(url, signal) {
+    const r = await request(url, {}, signal, 180000);
+    if (!r.ok) throw new Error(`Téléchargement impossible (${r.status}).`);
+    return r.blob();
+  }
+
+  function saveBlob(blob, name) {
+    const u = URL.createObjectURL(blob);
+    const a = h('a', { href: u, download: name });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 60000);
+  }
+
+  /* ----------------------- Tâches longues et arrêt ----------------------- */
+
+  async function keepAwake(on) {
+    try {
+      if (on && 'wakeLock' in navigator && document.visibilityState === 'visible') state.wake = await navigator.wakeLock.request('screen');
+      else if (!on && state.wake) { await state.wake.release(); state.wake = null; }
+    } catch { /* non supporté */ }
+  }
+
+  function begin(kind) {
+    state.running = kind;
+    state.abort = new AbortController();
+    keepAwake(true);
+    refresh();
+    return state.abort.signal;
+  }
+  function end() {
+    state.running = null;
+    state.abort = null;
+    keepAwake(false);
+    refresh();
+  }
+  function stop() { if (state.abort) state.abort.abort(); }
+
+  /* ------------------------------ Musique ------------------------------ */
+
+  function decodeFile(file) {
+    return file.arrayBuffer().then(buf => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) throw new Error('Web Audio indisponible');
+      const ctx = new AC();
+      return new Promise((resolve, reject) => {
+        const p = ctx.decodeAudioData(buf, resolve, reject);
+        if (p && typeof p.then === 'function') p.then(resolve, reject);
+      }).finally(() => { if (ctx.close) ctx.close().catch(() => {}); });
+    });
+  }
+
+  async function pickFile(f) {
+    if (!f) return;
+    if (state.running) { fileMsg('Attends la fin de l’opération en cours avant de changer de chanson.', 'bad'); return; }
+    const okType = (f.type && f.type.startsWith('audio/')) || /\.(mp3|wav|m4a|aac|ogg|oga|flac)$/i.test(f.name);
+    if (!okType) { fileMsg('Ce fichier n’est pas un audio. Choisis un MP3, un WAV ou un M4A.', 'bad'); return; }
+    if (f.size > CONFIG.maxFileMB * 1024 * 1024) { fileMsg(`Fichier trop lourd (${(f.size / 1048576).toFixed(0)} Mo). Maximum : ${CONFIG.maxFileMB} Mo.`, 'bad'); return; }
+    if (state.storyboard && state.fileName !== f.name) {
+      if (!confirm('Cette chanson est différente de celle du projet en cours. Le storyboard et les plans actuels seront effacés. Continuer ?')) return;
+      resetProject();
+    }
+    fileMsg('Analyse de la chanson…');
+    await sleep(30);
+    let ab;
+    try { ab = await decodeFile(f); }
+    catch { fileMsg('Impossible de lire ce fichier. Essaie un MP3 ou un WAV.', 'bad'); return; }
+    if (!ab || ab.duration < 2) { fileMsg('Ce fichier audio est trop court.', 'bad'); return; }
+    state.file = f; state.fileName = f.name; state.buffer = ab; state.sr = ab.sampleRate; state.duration = ab.duration;
+    state.mono = toMono(ab);
+    state.analysis = analyze(state.mono, state.sr);
+    if (state.playerUrl) URL.revokeObjectURL(state.playerUrl);
+    state.playerUrl = URL.createObjectURL(f);
+    ui.player.src = state.playerUrl; ui.player.hidden = false;
+    fileMsg(`${f.name} (${(f.size / 1048576).toFixed(1)} Mo)`, 'ok');
+    const a = state.analysis;
+    $('#stDur').textContent = fmtTime(state.duration);
+    $('#stTempo').textContent = a.tempo ? `≈ ${a.tempo} BPM` : 'irrégulier';
+    $('#stDyn').textContent = a.dynamics > 0.22 ? 'contrastée' : 'régulière';
+    $('#stTimbre').textContent = a.brightness > 0.06 ? 'brillante' : 'chaude';
+    ui.analysis.hidden = false;
+    drawTimeline();
+    refresh();
+    save();
+  }
+
+  /* ------------------------------ Frise ------------------------------ */
+
+  let drawQueued = false;
+  function drawTimeline() {
+    if (drawQueued) return;
+    drawQueued = true;
+    requestAnimationFrame(() => { drawQueued = false; paintTimeline(); });
+  }
+  function paintTimeline() {
+    const a = state.analysis, c = ui.timeline;
+    if (!a || ui.analysis.hidden) return;
+    const W = c.clientWidth, H = c.clientHeight;
+    if (!W || !H) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const css = getComputedStyle(document.documentElement);
+    const col = n => css.getPropertyValue(n).trim();
+    const dur = state.duration || 1, x = t => (t / dur) * W;
+    const scenes = state.storyboard ? state.storyboard.scenes : planWindows(dur, a, ui.length.value);
+    const first = scenes[0], last = scenes[scenes.length - 1];
+
+    g.font = `600 11px ${col('--font')}`;
+    g.textBaseline = 'top';
+    scenes.forEach((s, i) => {
+      const x0 = x(s.start), x1 = x(s.end);
+      g.fillStyle = i % 2 ? 'rgba(244,185,66,.10)' : 'rgba(244,185,66,.18)';
+      g.fillRect(x0, 0, Math.max(1, x1 - x0), H);
+      if (x1 - x0 > 14) { g.fillStyle = col('--muted'); g.fillText(String(i + 1), x0 + 4, 5); }
+    });
+
+    const mid = H / 2 + 6, maxH = H / 2 - 12;
+    const bw = 3, n = Math.floor(W / bw);
+    for (let b = 0; b < n; b++) {
+      const t0 = (b / n) * dur, t1 = ((b + 1) / n) * dur;
+      const v = avgEnergy(a, t0, t1);
+      const bh = Math.max(1, v * maxH);
+      const inside = first && t1 > first.start && t0 < last.end;
+      g.fillStyle = inside ? (v > 0.78 ? col('--rose') : col('--spot')) : col('--line');
+      g.fillRect(b * bw, mid - bh, bw - 1, bh * 2);
+    }
+
+    const t = ui.player.currentTime;
+    if (!ui.player.hidden && Number.isFinite(t) && t > 0) {
+      g.fillStyle = col('--text');
+      g.fillRect(x(t) - 1, 0, 2, H);
+    }
+  }
+
+  /* ---------------------------- Storyboard ---------------------------- */
+
+  function buildStoryboardPrompt(plan, s) {
+    const a = state.analysis;
+    const title = state.fileName.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').replace(/[^\p{L}\p{N} '’().,&!?]/gu, '').slice(0, 80);
+    const lines = plan.map((w, i) => {
+      const prev = i ? plan[i - 1].energy : w.energy;
+      const trend = w.energy - prev > 0.12 ? ', rising' : prev - w.energy > 0.12 ? ', falling' : '';
+      return `Scene ${i + 1}: ${fmtTime(w.start)}-${fmtTime(w.end)}, energy ${ENERGY_EN[energyLevel(w.energy)]} (${Math.round(w.energy * 100)}/100${trend})`;
+    }).join('\n');
+    return `You are an elite music-video director. Design a highly photorealistic, emotionally coherent music video that follows the music below.
+
+SONG (measured from the audio file):
+- Title guess from the file name (may be meaningless): "${title}"
+- Duration: ${Math.round(state.duration)} s. This video covers ${fmtTime(plan[0].start)}-${fmtTime(plan[plan.length - 1].end)}.
+- Tempo: ${a.tempo ? `about ${a.tempo} BPM` : 'irregular or free'}
+- Dynamics: ${a.dynamics > 0.22 ? 'strong contrasts between quiet and loud parts' : 'fairly steady intensity'}
+- Timbre: ${a.brightness > 0.06 ? 'bright, crisp' : 'warm, dark, bass-heavy'}
+${s.lyrics ? `\nLYRICS (use their meaning and imagery; never show written words on screen):\n"""\n${s.lyrics.slice(0, 5000)}\n"""\n` : ''}
+CREATIVE NOTE FROM THE ARTIST: ${s.idea || 'none. Invent an original story that fits the music.'}
+STYLE: ${s.style}. MAIN CHARACTER: ${CHARACTER_EN[s.character] || CHARACTER_EN.auto}. ASPECT RATIO: ${s.ratio}.
+
+TIMELINE. Create exactly ${plan.length} scenes, one for each line, in this order. Match each moment's energy: calm = slow, intimate framing; moderate = steady movement; intense = dynamic camera and action; peak = the most striking images of the video. Rising = building tension; falling = release.
+${lines}
+
+RULES
+- Each shot lasts ${CONFIG.sceneSeconds} seconds: one clear action, no scene cuts inside a shot.
+- The main character (if any) must look identical in every scene: same age range, face, hair, skin tone, body shape and core wardrobe. Describe them once, precisely, in character_bible.
+- Natural human anatomy: realistic hands with five fingers, natural eyes, teeth, limbs and motion. No uncanny faces, waxy skin, duplicated people or extra limbs.
+- No on-screen text, subtitles, logos or watermarks.
+- Professional cinematography: motivated camera movement, real lens behaviour, depth, lighting continuity and an emotional arc from first to last scene.
+- Each scene prompt is standalone (the video model only sees the bibles plus that prompt), written in English, 60 to 140 words: subject, action, setting, camera move, lens, lighting, mood.
+
+Return ONLY this JSON object, no markdown:
+{"concept":"one or two sentences in French describing the story","character_bible":"...","visual_bible":"palette, lighting, locations, camera language","scenes":[{"title":"short title in French","prompt":"..."}]}`;
+  }
+
+  async function writeStoryboard() {
+    if (state.running) return;
+    const key = getKey(); if (!key) return;
+    if (!state.analysis) { setStatus('Ajoute d’abord ta chanson.', null, 'bad'); return; }
+    if (state.storyboard && state.storyboard.scenes.some(s => s.url) &&
+        !confirm('Réécrire le storyboard efface les plans déjà générés. Continuer ?')) return;
+    persistKey(); saveSettings();
+    const signal = begin('storyboard');
+    try {
+      const s = settings();
+      const plan = planWindows(state.duration, state.analysis, s.length);
+      const msgs = [
+        { role: 'system', content: 'You are a world-class music-video director and prompt engineer. You answer with strict JSON only.' },
+        { role: 'user', content: buildStoryboardPrompt(plan, s) }
+      ];
+      let sb = null, lastErr = null;
+      for (let a = 0; a < 3 && !sb; a++) {
+        setStatus(a ? `Storyboard incomplet, nouvelle tentative (${a + 1}/3)…` : 'Écriture du storyboard…', 15 + a * 25);
+        const txt = await chat(key, msgs, signal);
+        try { sb = validateStoryboard(parseJSON(txt), plan.length); }
+        catch (e) {
+          lastErr = e;
+          msgs.push({ role: 'assistant', content: txt.slice(0, 8000) },
+            { role: 'user', content: `This answer is unusable (${e.message}). Reply again with ONLY the JSON object and exactly ${plan.length} scenes.` });
+        }
+      }
+      if (!sb) throw new Error(`Storyboard : l’IA n’a pas renvoyé un storyboard valide (${lastErr ? lastErr.message : 'inconnu'}). Réessaie.`);
+      clearFinal();
+      state.seedBase = randomSeed();
+      state.storyboard = {
+        concept: sb.concept, character_bible: sb.character_bible, visual_bible: sb.visual_bible,
+        settings: { ratio: s.ratio, character: s.character }, refImage: null,
+        scenes: sb.scenes.map((x, i) => ({ ...x, ...plan[i], status: 'idle', progress: 0, url: null, error: '', attempt: 0 }))
+      };
+      renderBoard(); drawTimeline(); save();
+      if (needsRef()) {
+        setStatus('Création du visage du personnage…', 90);
+        try { await createRefImage(key, signal); }
+        catch (e) { if (e instanceof CancelError) throw e; setStatus(`Storyboard prêt, mais le visage du personnage n’a pas pu être créé (${e.message}). Touche « Créer le visage ».`, 100, 'bad'); return; }
+      }
+      setStatus('Storyboard prêt. Relis et modifie les plans si tu veux, puis lance la génération.', 100, 'ok');
+    } catch (e) {
+      setStatus(e instanceof CancelError ? 'Écriture du storyboard arrêtée.' : e.message, null, e instanceof CancelError ? '' : 'bad');
+    } finally { end(); }
+  }
+
+  /* ------------------------ Visage du personnage ------------------------ */
+
+  function needsRef() {
+    const sb = state.storyboard;
+    return !!sb && (sb.settings && sb.settings.character) !== 'none' && !!sb.character_bible;
+  }
+
+  function imageFromResponse(j) {
+    const d = j && Array.isArray(j.data) ? j.data[0] : j;
+    const url = safeHttpsUrl(d && (d.url || d.image_url)) || safeHttpsUrl(j && j.url);
+    if (url) return url;
+    const b64 = d && d.b64_json;
+    if (typeof b64 === 'string' && /^[A-Za-z0-9+/=\s]+$/.test(b64.slice(0, 200))) return 'data:image/png;base64,' + b64.replace(/\s/g, '');
+    return null;
+  }
+
+  async function createRefImage(key, signal) {
+    const sb = state.storyboard;
+    const prompt = `Photorealistic full-body portrait photograph of this person: ${sb.character_bible}. Standing, facing the camera, natural relaxed expression, plain light grey studio background, soft even lighting, sharp focus on the face, natural skin texture, realistic hands. No text, no logo, no watermark.`;
+    const j = await postWithRetry('/v1/images/generations', { model: CONFIG.imageModel, prompt, size: '1K', ratio: '3:4' }, key, signal, 120000, 'Visage du personnage', 3);
+    const img = imageFromResponse(j);
+    if (!img) throw new Error('aucune image renvoyée');
+    sb.refImage = img;
+    renderRef(); save();
+  }
+
+  async function makeRef() {
+    if (state.running || !state.storyboard) return;
+    const key = getKey(); if (!key) return;
+    persistKey();
+    const signal = begin('storyboard');
+    setStatus('Création du visage du personnage…', 50);
+    try { await createRefImage(key, signal); setStatus('Visage créé. Il servira de référence pour tous les plans.', 100, 'ok'); }
+    catch (e) { setStatus(e instanceof CancelError ? 'Arrêté.' : `Visage du personnage : ${e.message}`, null, e instanceof CancelError ? '' : 'bad'); }
+    finally { end(); }
+  }
+
+  function renderRef() {
+    const box = state.refBox; if (!box) return;
+    const sb = state.storyboard;
+    box.replaceChildren();
+    if (!sb || (sb.settings && sb.settings.character) === 'none') { box.hidden = true; return; }
+    box.hidden = false;
+    box.append(h('h3', { text: 'Le visage du personnage' }),
+      h('p', { class: 'note', text: 'Cette image est donnée à chaque plan pour garder le même visage. Si elle ne te plaît pas, corrige la fiche du personnage puis recrée-la avant de générer les plans.' }));
+    if (sb.refImage) box.append(h('img', { class: 'refimg', src: sb.refImage, alt: 'Personnage principal' }));
+    box.append(h('div', { class: 'btns' }, h('button', {
+      type: 'button', class: 'btn ghost small', text: sb.refImage ? 'Recréer le visage' : 'Créer le visage',
+      disabled: !!state.running, onclick: makeRef
+    })));
+  }
+
+  /* ---------------------------- Tableau des plans ---------------------------- */
+
+  function renderBoard() {
+    ui.board.replaceChildren();
+    state.dom = [];
+    const sb = state.storyboard;
+    if (!sb) { refresh(); return; }
+
+    if (sb.concept) ui.board.append(h('div', { class: 'concept' }, h('h3', { text: 'L’histoire' }), h('p', { text: sb.concept })));
+
+    const bibleField = (label, field) => {
+      const id = 'bible-' + field;
+      const ta = h('textarea', { id, maxlength: 2400 });
+      ta.value = sb[field] || '';
+      ta.addEventListener('input', () => { sb[field] = ta.value; save(); });
+      return [h('label', { for: id, text: label }), ta];
+    };
+    ui.board.append(h('details', { class: 'bibles' },
+      h('summary', { text: 'Personnage et direction visuelle (modifiables)' }),
+      bibleField('Fiche du personnage (en anglais)', 'character_bible'),
+      bibleField('Direction visuelle (en anglais)', 'visual_bible')));
+    state.refBox = h('div', { class: 'concept' });
+    ui.board.append(state.refBox);
+    renderRef();
+
+    const list = h('ol', { class: 'scenes' });
+    sb.scenes.forEach((sc, i) => {
+      const lvl = energyLevel(sc.energy);
+      const promptId = 'prompt-' + i;
+      const prompt = h('textarea', { id: promptId, maxlength: 2400, 'aria-label': `Description du plan ${i + 1}` });
+      prompt.value = sc.prompt;
+      prompt.addEventListener('input', () => { sc.prompt = prompt.value; save(); });
+      const status = h('p', { class: 'status', 'aria-live': 'polite' });
+      const media = h('div');
+      const regen = h('button', { type: 'button', class: 'btn ghost small', text: 'Générer ce plan', onclick: () => regenerate(i) });
+      const dl = h('button', { type: 'button', class: 'btn ghost small', text: 'Télécharger', onclick: () => downloadScene(i) });
+      const li = h('li', { class: 'scene' },
+        h('div', { class: 'scene-head' },
+          h('h3', { text: `Plan ${i + 1} : ${sc.title}` }),
+          h('span', { class: 'time', text: `${fmtTime(sc.start)} – ${fmtTime(sc.end)}` }),
+          h('span', { class: 'chip', 'data-level': lvl, text: ENERGY_FR[lvl] })),
+        prompt, status, media, h('div', { class: 'btns' }, regen, dl));
+      list.append(li);
+      state.dom[i] = { li, prompt, status, media, regen, dl };
+      updateScene(i);
+    });
+    ui.board.append(list);
+    refresh();
+  }
+
+  function updateScene(i) {
+    const sc = state.storyboard && state.storyboard.scenes[i], d = state.dom[i];
+    if (!sc || !d) return;
+    d.li.dataset.status = sc.status;
+    const texts = {
+      idle: sc.url ? 'Prêt.' : 'Pas encore généré.',
+      queued: 'En file d’attente…',
+      waiting: `Pause imposée par le compte gratuit : ${sc.wait || 0} s…`,
+      sending: 'Envoi à Agnes…',
+      running: `Génération : ${sc.progress} %`,
+      done: 'Prêt.',
+      error: sc.url ? `Échec de la nouvelle version, l’ancienne est conservée. ${sc.error}` : `Échec : ${sc.error}`
+    };
+    d.status.textContent = texts[sc.status] || '';
+    d.status.dataset.tone = sc.status === 'error' ? 'bad' : sc.status === 'done' ? 'ok' : '';
+    if (sc.url && d.media.dataset.url !== sc.url) {
+      d.media.dataset.url = sc.url;
+      d.media.replaceChildren(h('video', { src: sc.url, controls: true, playsinline: true, preload: 'metadata' }));
+    } else if (!sc.url && d.media.dataset.url) {
+      delete d.media.dataset.url; d.media.replaceChildren();
+    }
+    const busy = !!state.running;
+    d.prompt.disabled = busy;
+    d.regen.disabled = busy;
+    d.regen.textContent = sc.url ? 'Régénérer' : 'Générer ce plan';
+    d.dl.hidden = !sc.url;
+  }
+
+  function updateGlobal() {
+    const sc = state.storyboard ? state.storyboard.scenes : [];
+    if (!sc.length) return;
+    const total = sc.reduce((s, x) => s + (x.status === 'done' || (x.url && x.status !== 'running' && x.status !== 'sending') ? 100 : x.progress || 0), 0);
+    const done = sc.filter(x => x.url).length;
+    if (state.running === 'video') setStatus(`Génération des plans : ${done}/${sc.length} prêts.`, total / sc.length);
+  }
+
+  /* ---------------------------- Génération ---------------------------- */
+
+  function videoRequest(i) {
+    const sb = state.storyboard, sc = sb.scenes[i], s = settings();
+    const ref = needsRef() && sb.refImage;
+    const prompt = [
+      ref && 'The main character is exactly the person shown in <Picture 1>: same face, hair, skin tone, body and outfit in every frame.',
+      sb.character_bible && `CHARACTER: ${sb.character_bible}`,
+      sb.visual_bible && `VISUAL STYLE: ${sb.visual_bible}`,
+      `SHOT: ${sc.prompt}`,
+      `Energy of this moment: ${ENERGY_EN[energyLevel(sc.energy)]}.`,
+      'Photorealistic human performance, natural anatomy, stable face identity, temporal consistency, cinematic motion. No on-screen text, no subtitles, no logos, no watermark.'
+    ].filter(Boolean).join('\n\n');
+    // Format exigé par agnes-video-2.5-flash : seconds en texte, taille 720P
+    const body = {
+      model: CONFIG.videoModel, prompt,
+      mode: ref ? 'reference' : 'text',
+      seconds: String(CONFIG.sceneSeconds), size: '720P', aspect_ratio: s.ratio
+    };
+    if (ref) body.images = [ref];
+    return { model: CONFIG.videoModel, body };
+  }
+
+  async function generateScene(i, key, signal) {
+    const sc = state.storyboard.scenes[i];
+    if (signal.aborted) { sc.status = sc.url ? 'done' : 'idle'; updateScene(i); return; }
+    sc.error = ''; sc.progress = 0;
+    try {
+      let wait = (state.lastVideoAt || 0) + CONFIG.videoGapMs - Date.now();
+      while (wait > 0) {
+        sc.status = 'waiting'; sc.wait = Math.ceil(wait / 1000); updateScene(i);
+        await sleep(Math.min(1000, wait), signal);
+        wait = state.lastVideoAt + CONFIG.videoGapMs - Date.now();
+      }
+      sc.status = 'sending'; updateScene(i);
+      state.lastVideoAt = Date.now();
+      const { model, body } = videoRequest(i);
+      // Relances limitées aux refus explicites (429/503) pour ne jamais payer deux fois le même plan
+      const job = await postWithRetry('/v1/videos', body, key, signal, 120000, `Plan ${i + 1}`, 5, CONFIG.safeVideoRetry);
+      const id = job && (job.video_id || job.id || (job.data && job.data[0] && job.data[0].id));
+      if (!id) throw new Error('Agnes n’a pas renvoyé d’identifiant de vidéo.');
+      sc.status = 'running'; updateScene(i);
+      const res = await pollVideo(key, String(id), model, signal, p => { sc.progress = p; updateScene(i); updateGlobal(); });
+      const out = res.url || res.video_url || (res.data && res.data[0] && res.data[0].url) || (res.output && res.output.url) || (res.result && res.result.url);
+      const url = safeHttpsUrl(out);
+      if (!url) throw new Error('Vidéo terminée mais aucun lien sécurisé (https) n’a été renvoyé.');
+      sc.url = url; sc.status = 'done'; sc.progress = 100;
+      clearFinal();
+    } catch (e) {
+      if (e instanceof CancelError) { sc.status = sc.url ? 'done' : 'idle'; sc.progress = 0; }
+      else if (sc.status === 'waiting') { sc.status = 'error'; sc.error = e.message; }
+      else { sc.status = 'error'; sc.error = e.message; }
+    } finally {
+      updateScene(i); updateGlobal(); save();
+    }
+  }
+
+  async function runPool(items, worker, limit) {
+    let next = 0;
+    const lane = async () => { while (next < items.length) { const it = items[next++]; await worker(it); } };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  }
+
+  async function generate(indices, askConfirm) {
+    if (state.running || !state.storyboard) return;
+    const key = getKey(); if (!key) return;
+    const sb = state.storyboard;
+    indices = indices || sb.scenes.map((_, i) => i).filter(i => !sb.scenes[i].url);
+    if (!indices.length) { setStatus('Tous les plans sont prêts. Passe au montage.', 100, 'ok'); return; }
+    if (askConfirm && indices.length > 5 &&
+        !confirm(`Tu vas lancer ${indices.length} plans. Avec le compte gratuit, il faut environ ${indices.length + 3} minutes. Garde l’écran allumé. Continuer ?`)) return;
+    persistKey(); saveSettings();
+    const signal = begin('video');
+    if (needsRef() && !sb.refImage) {
+      setStatus('Création du visage du personnage…', 5);
+      try { await createRefImage(key, signal); }
+      catch (e) {
+        end();
+        setStatus(e instanceof CancelError ? 'Arrêté.' : `Impossible de créer le visage du personnage (${e.message}). Réessaie avec « Créer le visage ».`, null, e instanceof CancelError ? '' : 'bad');
+        return;
+      }
+    }
+    indices.forEach(i => { sb.scenes[i].status = 'queued'; updateScene(i); });
+    updateGlobal();
+    try {
+      await runPool(indices, i => generateScene(i, key, signal), CONFIG.concurrency);
+    } finally {
+      sb.scenes.forEach((x, i) => { if (x.status === 'queued' || x.status === 'waiting') { x.status = x.url ? 'done' : 'idle'; updateScene(i); } });
+      const aborted = signal.aborted;
+      end();
+      const ready = sb.scenes.filter(x => x.url).length;
+      const failed = indices.filter(i => sb.scenes[i].status === 'error').length;
+      if (aborted) setStatus(`Génération arrêtée. ${ready}/${sb.scenes.length} plans prêts, ils sont conservés.`, null, '');
+      else if (failed) setStatus(`${ready}/${sb.scenes.length} plans prêts. ${failed} en échec : touche « Générer ce plan » ou « Régénérer » sur ces plans.`, null, 'bad');
+      else if (ready === sb.scenes.length) setStatus('Tous les plans sont prêts. Passe au montage.', 100, 'ok');
+      else setStatus(`${ready}/${sb.scenes.length} plans prêts.`, null, '');
+      save();
+    }
+  }
+
+  function regenerate(i) {
+    const sc = state.storyboard && state.storyboard.scenes[i];
+    if (!sc || state.running) return;
+    if (sc.url) sc.attempt = (sc.attempt || 0) + 1;
+    generate([i], false);
+  }
+
+  async function downloadScene(i) {
+    const sc = state.storyboard.scenes[i];
+    if (!sc.url) return;
+    try { saveBlob(await fetchBlob(sc.url), `plan-${String(i + 1).padStart(2, '0')}.mp4`); }
+    catch { window.open(sc.url, '_blank', 'noopener,noreferrer'); }
+  }
+
+  async function downloadAll() {
+    const sc = state.storyboard ? state.storyboard.scenes : [];
+    for (let i = 0; i < sc.length; i++) {
+      if (!sc[i].url) continue;
+      setMStatus(`Téléchargement du plan ${i + 1}/${sc.length}…`);
+      try { saveBlob(await fetchBlob(sc[i].url), `plan-${String(i + 1).padStart(2, '0')}.mp4`); }
+      catch { setMStatus('Le serveur vidéo bloque le téléchargement direct. Utilise le bouton « Télécharger » de chaque plan.', 'bad'); return; }
+      await sleep(600);
+    }
+    setMStatus('Plans téléchargés.', 'ok');
+  }
+
+  function exportStoryboard() {
+    const sb = state.storyboard; if (!sb) return;
+    const data = {
+      song: state.fileName, concept: sb.concept, character_bible: sb.character_bible, visual_bible: sb.visual_bible,
+      scenes: sb.scenes.map((s, i) => ({ n: i + 1, start: fmtTime(s.start), end: fmtTime(s.end), energy: ENERGY_FR[energyLevel(s.energy)], title: s.title, prompt: s.prompt, video: s.url }))
+    };
+    saveBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'storyboard.json');
+  }
+
+  /* ------------------------------ Montage ------------------------------ */
+
+  function clearFinal() {
+    if (state.finalUrl) { URL.revokeObjectURL(state.finalUrl); state.finalUrl = null; }
+    ui.stage.replaceChildren();
+  }
+
+  function pickMime() {
+    if (typeof MediaRecorder === 'undefined') return null;
+    const list = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    return list.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch { return false; } }) || null;
+  }
+
+  async function assemble() {
+    if (state.running) return;
+    const sb = state.storyboard;
+    if (!sb || !sb.scenes.every(s => s.url)) return;
+    if (!state.buffer) { setMStatus('Ajoute à nouveau la chanson à l’étape 1 pour le montage.', 'bad'); return; }
+    const mime = pickMime();
+    const canvas = document.createElement('canvas');
+    if (!mime || !canvas.captureStream) { setMStatus('Ce navigateur ne sait pas enregistrer de vidéo. Utilise Chrome, Edge ou un Safari récent.', 'bad'); return; }
+
+    // Contexte audio créé immédiatement, pendant le geste de l'utilisateur
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    const signal = begin('montage');
+    const vids = [], blobUrls = [];
+    let rec = null, src = null, raf = 0;
+    clearFinal();
+    try {
+      for (let i = 0; i < sb.scenes.length; i++) {
+        setMStatus(`Récupération des plans : ${i + 1}/${sb.scenes.length}…`);
+        let blob;
+        try { blob = await fetchBlob(sb.scenes[i].url, signal); }
+        catch (e) {
+          if (e instanceof CancelError) throw e;
+          throw new Error('Le serveur vidéo bloque la récupération des plans depuis le navigateur, ou leurs liens ont expiré. Télécharge les plans un par un et monte-les dans CapCut ou iMovie, ou régénère les plans expirés.');
+        }
+        const u = URL.createObjectURL(blob); blobUrls.push(u);
+        const v = h('video', { muted: true, playsinline: true, preload: 'auto' });
+        v.muted = true; v.src = u;
+        vids.push(v);
+      }
+      await Promise.all(vids.map((v, i) => new Promise((res, rej) => {
+        if (v.readyState >= 2) return res();
+        v.addEventListener('loadeddata', res, { once: true });
+        v.addEventListener('error', () => rej(new Error(`Le plan ${i + 1} est illisible dans ce navigateur.`)), { once: true });
+        v.load();
+      })));
+
+      const v0 = vids[0];
+      let W = v0.videoWidth || 1280, H = v0.videoHeight || 720;
+      const scale = Math.min(1, 1920 / Math.max(W, H));
+      W = Math.round(W * scale / 2) * 2; H = Math.round(H * scale / 2) * 2;
+      canvas.width = W; canvas.height = H;
+      const g = canvas.getContext('2d');
+      g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+      ui.stage.replaceChildren(canvas);
+
+      await ac.resume();
+      const dest = ac.createMediaStreamDestination();
+      src = ac.createBufferSource();
+      src.buffer = state.buffer;
+      src.connect(dest);
+      const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+      const chunks = [];
+      rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 192_000 });
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise((res, rej) => { rec.onstop = res; rec.onerror = e => rej(new Error('Erreur d’enregistrement : ' + ((e.error && e.error.message) || 'inconnue'))); });
+      stopped.catch(() => {});
+
+      const clipStart = sb.scenes[0].start;
+      const total = Math.min(sb.scenes[sb.scenes.length - 1].end, state.duration) - clipStart;
+      const draw = v => {
+        const vw = v.videoWidth, vh = v.videoHeight;
+        if (!vw || !vh) return;
+        const s = Math.max(W / vw, H / vh), dw = vw * s, dh = vh * s;
+        g.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      };
+
+      rec.start(1000);
+      src.start(0, clipStart, total);
+      const t0 = ac.currentTime;
+      let cur = -1;
+      await new Promise((resolve, reject) => {
+        const onAbort = () => reject(new CancelError());
+        signal.addEventListener('abort', onAbort, { once: true });
+        const tick = () => {
+          const el = ac.currentTime - t0;
+          if (el >= total) { signal.removeEventListener('abort', onAbort); return resolve(); }
+          const at = clipStart + el;
+          let idx = sb.scenes.findIndex(s => at >= s.start && at < s.end);
+          if (idx < 0) idx = sb.scenes.length - 1;
+          if (idx !== cur) {
+            if (cur >= 0) vids[cur].pause();
+            cur = idx;
+            const v = vids[idx];
+            try { v.currentTime = 0; } catch { /* ignoré */ }
+            const p = v.play(); if (p && p.catch) p.catch(() => {});
+          }
+          draw(vids[cur]);
+          setMStatus(`Montage : ${fmtTime(el)} / ${fmtTime(total)}${document.hidden ? ' (reviens sur cette page, le montage est en pause)' : ''}`);
+          raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+      });
+
+      rec.stop();
+      await stopped;
+      const type = mime.split(';')[0];
+      const blob = new Blob(chunks, { type });
+      if (!blob.size) throw new Error('Le montage est vide. Garde la page au premier plan pendant l’enregistrement et réessaie.');
+      state.finalUrl = URL.createObjectURL(blob);
+      const ext = type === 'video/mp4' ? 'mp4' : 'webm';
+      const name = `clip-${state.fileName.replace(/\.[a-z0-9]+$/i, '').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 50) || 'clipstudio'}.${ext}`;
+      ui.stage.replaceChildren(
+        h('video', { src: state.finalUrl, controls: true, playsinline: true }),
+        h('div', { class: 'btns' }, h('a', { class: 'btn primary', href: state.finalUrl, download: name, text: 'Télécharger le clip' })));
+      setMStatus(ext === 'webm'
+        ? 'Clip prêt (format WebM). Pour Instagram ou TikTok, convertis-le en MP4 si l’appli le refuse.'
+        : 'Clip prêt.', 'ok');
+    } catch (e) {
+      ui.stage.replaceChildren();
+      setMStatus(e instanceof CancelError ? 'Montage arrêté.' : e.message, e instanceof CancelError ? '' : 'bad');
+    } finally {
+      cancelAnimationFrame(raf);
+      try { if (rec && rec.state !== 'inactive') rec.stop(); } catch { /* déjà arrêté */ }
+      try { if (src) src.stop(); } catch { /* déjà arrêté */ }
+      vids.forEach(v => { v.pause(); v.removeAttribute('src'); v.load(); });
+      blobUrls.forEach(u => URL.revokeObjectURL(u));
+      ac.close().catch(() => {});
+      end();
+    }
+  }
+
+  /* --------------------------- Sauvegarde locale --------------------------- */
+
+  function save() {
+    clearTimeout(state.saveTimer);
+    state.saveTimer = setTimeout(() => {
+      const sb = state.storyboard;
+      if (!sb) { store.del(CONFIG.storeKey); return; }
+      const data = {
+        v: 2, savedAt: Date.now(), fileName: state.fileName, duration: state.duration, seedBase: state.seedBase,
+        storyboard: {
+          concept: sb.concept, character_bible: sb.character_bible, visual_bible: sb.visual_bible, settings: sb.settings,
+          refImage: sb.refImage && sb.refImage.length < 3000000 ? sb.refImage : null,
+          scenes: sb.scenes.map(s => ({ title: s.title, prompt: s.prompt, start: s.start, end: s.end, energy: s.energy, url: s.url, attempt: s.attempt || 0 }))
+        }
+      };
+      store.set(CONFIG.storeKey, JSON.stringify(data));
+    }, 300);
+  }
+
+  function loadSaved() {
+    let d;
+    try { d = JSON.parse(store.get(CONFIG.storeKey) || 'null'); } catch { return null; }
+    if (!d || d.v !== 2 || !d.storyboard || !Array.isArray(d.storyboard.scenes) || !d.storyboard.scenes.length) return null;
+    const num = (v, def) => (Number.isFinite(Number(v)) ? Number(v) : def);
+    const scenes = d.storyboard.scenes.slice(0, CONFIG.maxScenes).map((s, i) => {
+      const url = safeHttpsUrl(s && s.url);
+      const start = Math.max(0, num(s && s.start, i * CONFIG.sceneSeconds));
+      return {
+        title: str(s && s.title).slice(0, 90) || `Plan ${i + 1}`, prompt: str(s && s.prompt).slice(0, 2400),
+        start, end: Math.max(start + 1, num(s && s.end, start + CONFIG.sceneSeconds)), energy: clamp(num(s && s.energy, 0.5), 0, 1),
+        url, status: url ? 'done' : 'idle', progress: url ? 100 : 0, error: '', attempt: Math.max(0, Math.floor(num(s && s.attempt, 0)))
+      };
+    });
+    return {
+      fileName: str(d.fileName).slice(0, 200), duration: num(d.duration, 0), seedBase: Math.floor(num(d.seedBase, randomSeed())),
+      savedAt: num(d.savedAt, 0),
+      storyboard: {
+        concept: str(d.storyboard.concept).slice(0, 1200), character_bible: str(d.storyboard.character_bible).slice(0, 2400),
+        visual_bible: str(d.storyboard.visual_bible).slice(0, 2400), settings: d.storyboard.settings || {}, scenes,
+        refImage: safeHttpsUrl(d.storyboard.refImage) || (typeof d.storyboard.refImage === 'string' && d.storyboard.refImage.startsWith('data:image/') ? d.storyboard.refImage : null)
+      }
+    };
+  }
+
+  function resetProject() {
+    state.storyboard = null; state.seedBase = randomSeed();
+    clearFinal(); renderBoard(); store.del(CONFIG.storeKey);
+    ui.progress.hidden = true; setStatus(''); setMStatus('');
+  }
+
+  /* ------------------------------ Boutons ------------------------------ */
+
+  function refresh() {
+    const run = state.running, sb = state.storyboard;
+    const remaining = sb ? sb.scenes.filter(s => !s.url).length : 0;
+    const allReady = !!sb && remaining === 0;
+    ui.write.disabled = !!run || !state.analysis;
+    ui.write.textContent = sb ? 'Réécrire le storyboard' : 'Écrire le storyboard';
+    ui.write.className = sb ? 'btn ghost' : 'btn primary';
+    ui.generate.hidden = !sb;
+    ui.generate.disabled = !!run || allReady;
+    ui.generate.textContent = !sb ? 'Générer les plans' : allReady ? 'Tous les plans sont prêts'
+      : remaining === sb.scenes.length ? `Générer les ${remaining} plans` : `Générer les ${remaining} plans restants`;
+    ui.stop.hidden = !(run === 'storyboard' || run === 'video');
+    ui.stopMontage.hidden = run !== 'montage';
+    ui.assemble.disabled = !!run || !allReady || !state.buffer;
+    ui.downloadAll.disabled = !!run || !sb || !sb.scenes.some(s => s.url);
+    ui.exportSb.disabled = !sb;
+    ui.audio.disabled = !!run;
+    ui.drop.classList.toggle('is-disabled', !!run);
+    [ui.ratio, ui.style, ui.character, ui.length, ui.idea, ui.lyrics].forEach(x => { x.disabled = !!run; });
+    if (sb) sb.scenes.forEach((_, i) => updateScene(i));
+    renderRef();
+    if (!run) {
+      if (sb && !allReady) setMHint('Le montage sera possible quand tous les plans seront prêts.');
+      else if (allReady && !state.buffer) setMHint('Ajoute à nouveau la chanson à l’étape 1 pour monter le clip.');
+      else setMHint('');
+    }
+  }
+
+  /* ------------------------------ Événements ------------------------------ */
+
+  ui.audio.addEventListener('change', e => { pickFile(e.target.files && e.target.files[0]); e.target.value = ''; });
+  ['dragenter', 'dragover'].forEach(t => ui.drop.addEventListener(t, e => { e.preventDefault(); if (!state.running) ui.drop.classList.add('is-over'); }));
+  ['dragleave', 'drop'].forEach(t => ui.drop.addEventListener(t, e => { e.preventDefault(); ui.drop.classList.remove('is-over'); }));
+  ui.drop.addEventListener('drop', e => { if (!state.running) pickFile(e.dataTransfer && e.dataTransfer.files[0]); });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+
+  ui.timeline.addEventListener('click', e => {
+    if (!state.duration || ui.player.hidden) return;
+    const r = ui.timeline.getBoundingClientRect();
+    ui.player.currentTime = clamp((e.clientX - r.left) / r.width, 0, 1) * state.duration;
+    const p = ui.player.play(); if (p && p.catch) p.catch(() => {});
+  });
+  ui.player.addEventListener('timeupdate', drawTimeline);
+  ui.player.addEventListener('seeked', drawTimeline);
+  window.addEventListener('resize', drawTimeline);
+  ui.length.addEventListener('change', () => {
+    drawTimeline();
+    if (state.storyboard) setStatus('Nouvelle longueur choisie : réécris le storyboard pour l’appliquer.', null, '');
+  });
+  SETTING_IDS.forEach(id => ui[id].addEventListener('change', saveSettings));
+  [ui.idea, ui.lyrics].forEach(x => x.addEventListener('change', saveSettings));
+
+  ui.key.addEventListener('change', persistKey);
+  ui.rememberKey.addEventListener('change', persistKey);
+  ui.forgetKey.addEventListener('click', () => { ui.key.value = ''; ui.rememberKey.checked = false; store.del(CONFIG.apiKeyStore); ui.key.focus(); });
+
+  ui.write.addEventListener('click', writeStoryboard);
+  ui.generate.addEventListener('click', () => generate(null, true));
+  ui.stop.addEventListener('click', stop);
+  ui.stopMontage.addEventListener('click', stop);
+  ui.assemble.addEventListener('click', () => { setMStatus(''); assemble(); });
+  ui.downloadAll.addEventListener('click', downloadAll);
+  ui.exportSb.addEventListener('click', exportStoryboard);
+
+  document.addEventListener('visibilitychange', () => { if (state.running && document.visibilityState === 'visible') keepAwake(true); });
+  window.addEventListener('beforeunload', e => { if (state.running) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ------------------------------ Démarrage ------------------------------ */
+
+  loadSettings();
+  const savedKey = store.get(CONFIG.apiKeyStore);
+  if (savedKey) { ui.key.value = savedKey; ui.rememberKey.checked = true; }
+
+  const saved = loadSaved();
+  if (saved) {
+    const ready = saved.storyboard.scenes.filter(s => s.url).length;
+    const when = saved.savedAt ? new Date(saved.savedAt).toLocaleDateString('fr-FR') : '';
+    ui.resumeText.textContent = `Projet en cours${when ? ' du ' + when : ''} : « ${saved.fileName || 'sans titre'} », ${ready}/${saved.storyboard.scenes.length} plans prêts. Les liens vidéo peuvent expirer au bout de quelques jours : télécharge tes plans.`;
+    ui.resume.hidden = false;
+    ui.resumeYes.addEventListener('click', () => {
+      state.storyboard = saved.storyboard; state.fileName = saved.fileName; state.seedBase = saved.seedBase;
+      if (!state.duration) state.duration = saved.duration;
+      ui.resume.hidden = true;
+      renderBoard();
+      fileMsg(`Ajoute à nouveau « ${saved.fileName} » pour les extraits audio et le montage.`);
+    }, { once: true });
+    ui.resumeNo.addEventListener('click', () => { store.del(CONFIG.storeKey); ui.resume.hidden = true; }, { once: true });
+  }
+  refresh();
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startApp);
+  else startApp();
+}
+
+if (typeof module !== 'undefined') module.exports = { analyze, avgEnergy, wavBytes, parseJSON, validateStoryboard, planWindows, safeHttpsUrl, fmtTime };
+
+</script>
+</body>
+</html>
